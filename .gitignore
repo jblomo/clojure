@@ -1,5 +1,7 @@
 *.jar
+*.sw[po]
 target
+tags
 clojure.iws
 clojure.ipr
 nbproject/private/
