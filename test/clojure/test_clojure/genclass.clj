@@ -13,13 +13,17 @@
   (:import [clojure.test_clojure.genclass.examples
             ExampleClass
             ExampleAnnotationClass
+            ExampleGenericSuperClass
+            ExampleGenericInterfaceClass
+            ExampleGenericInterfaceSuperClass
             ArrayDefInterface
             ArrayGenInterface]
 
            [java.lang.annotation ElementType
                                  Retention
                                  RetentionPolicy
-                                 Target]))
+                                 Target]
+           [java.lang.reflect Type]))
 
 (deftest arg-support
   (let [example (ExampleClass.)
@@ -34,6 +38,17 @@
            (get-field ExampleClass 'foo_Object_int__var)))
     (is (= #'clojure.test-clojure.genclass.examples/-toString
            (get-field ExampleClass 'toString__var)))))
+
+(deftest parameterized-generics
+  (testing "tracking parameters for generic super classes and interfaces for java reflection"
+           (is (= [String Integer]
+                  (-> ExampleGenericSuperClass .getGenericSuperclass .getActualTypeArguments vec)))
+           (is (= [String Integer]
+                  (-> ExampleGenericInterfaceSuperClass .getGenericSuperclass .getActualTypeArguments vec)))
+           (is (= String
+                  (-> ExampleGenericInterfaceClass .getGenericInterfaces first .getActualTypeArguments first)))
+           (is (= String
+                  (-> ExampleGenericInterfaceSuperClass .getGenericInterfaces first .getActualTypeArguments first)))))
 
 ;todo - fix this, it depends on the order of things out of a hash-map
 #_(deftest test-annotations

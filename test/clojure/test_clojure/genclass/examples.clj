@@ -41,6 +41,19 @@
                                                              java.lang.annotation.ElementType/PARAMETER]}
                            String] void]])
 
+(gen-class :name clojure.test_clojure.genclass.examples.ExampleGenericSuperClass
+  :prefix "super-"
+  :extends ^{:parameters [String Integer]} java.util.HashMap)
+
+(gen-class :name clojure.test_clojure.genclass.examples.ExampleGenericInterfaceClass
+  :prefix "interface-"
+  :implements [^{:parameters [String]} Iterable])
+
+(gen-class :name clojure.test_clojure.genclass.examples.ExampleGenericInterfaceSuperClass
+  :prefix "interface-super-"
+  :extends ^{:parameters [String Integer]} java.util.HashMap
+  :implements [^{:parameters [String]} Iterable])
+
 (definterface ArrayDefInterface
   ; primitive array sugar
   (^void takesByteArray [^bytes a])

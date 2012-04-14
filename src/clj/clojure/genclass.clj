@@ -127,6 +127,13 @@
         impl-cname (.. impl-pkg-name (replace "." "/") (replace \- \_))
         ctype (. Type (getObjectType cname))
         iname (fn [^Class c] (.. Type (getType c) (getInternalName)))
+        dname (fn [^Class c] (.. Type (getType c) (getDescriptor)))
+        signature (fn [^Class c params] (if (empty? params)
+                                          (dname c)
+                                          (. (dname c)
+                                             (replace ";" (str \< 
+                                                               (apply str (map (comp dname the-class) params))
+                                                               \> \;)))))
         totype (fn [^Class c] (. Type (getType c)))
         to-types (fn [cs] (if (pos? (count cs))
                             (into-array (map totype cs))
@@ -136,6 +143,12 @@
                             (into-array (replicate n obj-type))
                             (make-array Type 0)))
         super-type ^Type (totype super)
+        ; generate a signature if we're using paramaterized generics
+        class-signature (let [symbols (cons extends implements)]
+                          (when (some #(get (meta %) :parameters) symbols)
+                            (apply str (map #(signature % (get (meta %2) :parameters))
+                                            supers
+                                            symbols))))
         init-name (str init)
         post-init-name (str post-init)
         factory-name (str factory)
@@ -241,7 +254,7 @@
         ]
                                         ;start class definition
     (. cv (visit (. Opcodes V1_5) (+ (. Opcodes ACC_PUBLIC) (. Opcodes ACC_SUPER))
-                 cname nil (iname super)
+                 cname class-signature (iname super)
                  (when-let [ifc (seq interfaces)]
                    (into-array (map iname ifc)))))
 
