@@ -156,7 +156,7 @@ public Object firstKey(){
 }
 
 public SortedMap headMap(Object toKey){
-	return APersistentMap.SubPersistentTreeMap(meta(), this, firstKey(), toKey);
+	return new SubPersistentTreeMap(meta(), this, firstKey(), toKey);
 }
 
 public Object lastKey(){
@@ -164,11 +164,11 @@ public Object lastKey(){
 }
 
 public SortedMap subMap(Object fromKey, Object toKey){
-	return new APersistentMap.SubPersistentTreeMap(meta(), this, fromKey, toKey);
+	return new SubPersistentTreeMap(meta(), this, fromKey, toKey);
 }
 
 public SortedMap tailMap(Object fromKey){
-	return new APersistentMap.SubPersistentTreeMap(meta(), this, fromKey, null);
+	return new SubPersistentTreeMap(meta(), this, fromKey, null);
 }
 
 public Object entryKey(Object entry){
@@ -913,6 +913,194 @@ static class ValIterator implements Iterator{
 
 	public void remove(){
 		throw new UnsupportedOperationException();
+	}
+}
+
+public class SubPersistentTreeMap extends APersistentMap implements IObj, Reversible, Sorted, SortedMap{
+	final PersistentTreeMap m;
+	final Object start;
+	final Object end;
+	final IPersistentMap _meta;
+
+	public SubPersistentTreeMap(IPersistentMap meta, PersistentTreeMap m, Object start, Object end){
+		this._meta = meta;
+
+		this.m = m;
+		this.start = start;
+		this.end = end;
+	}
+
+	private boolean withinSubRange(Object key){
+		return (m.doCompare(key, start) >= 0) &&
+			((end == null) || (m.doCompare(key, end) < 0));
+	}
+
+	public IPersistentMap meta(){
+		return _meta;
+	}
+
+	public IObj withMeta(IPersistentMap meta){
+		return new SubPersistentTreeMap(meta, m, start, end);
+	}
+
+	public boolean containsKey(Object key){
+		return entryAt(key) != null;
+	}
+
+	public IMapEntry entryAt(Object key){
+		return withinSubRange(key) ? m.entryAt(key) : null;
+	}
+
+	public Object entryKey(Object entry){
+		return ((IMapEntry) entry).key();
+	}
+
+	public IPersistentMap assocEx(Object key, Object val) {
+		if(withinSubRange(key))
+			return new SubPersistentTreeMap(meta(), m.assocEx(key, val), start, end);
+
+		// else we're not inserting between the range, so we no longer have a submap
+		return PersistentTreeMap.create(comparator(), seq(true)).assocEx(key, val);
+	}
+
+	public IPersistentMap assoc(Object key, Object val){
+		if(withinSubRange(key))
+			return new SubPersistentTreeMap(meta(), m.assoc(key, val), start, end);
+
+		// else we're not inserting between the range, so we no longer have a submap
+		return PersistentTreeMap.create(comparator(), seq(true)).assocEx(key, val);
+	}
+
+	public IPersistentMap without(Object key){
+		if(withinSubRange(key))
+			return new SubPersistentTreeMap(meta(), m.without(key), start, end);
+
+		return this;
+	}
+
+	public IPersistentCollection empty(){
+		return m.empty();
+	}
+
+	public ASeq rseq() {
+		return seqFrom(start, false);
+	}
+
+	public Comparator comparator(){
+		return m.comparator();
+	}
+
+	public Object firstKey(){
+		// TODO binary search
+		return ((IMapEntry)RT.first(seqFrom(start, true))).key();
+	}
+
+	public SortedMap headMap(Object toKey){
+		if((end == null) || (m.doCompare(toKey, end) >= 0))
+			return this;
+
+		return new SubPersistentTreeMap(meta(), m, start, toKey);
+	}
+
+	public Object lastKey(){
+		if(end == null)
+			return m.lastKey();
+
+		// TODO binary search
+		return ((IMapEntry)RT.first(rseq())).key();
+	}
+
+	public SortedMap subMap(Object fromKey, Object toKey){
+		Object newStart = m.doCompare(fromKey, start) > 0 ? fromKey : start;
+		Object newEnd = ((end == null) || (m.doCompare(toKey, end)) < 0) ? toKey : end;
+
+		if(m.doCompare(newEnd, newStart) <= 0)
+			return new PersistentTreeMap(meta(), comparator());	
+
+		return new SubPersistentTreeMap(meta(), m, newStart, newEnd);
+	}
+
+	public SortedMap tailMap(Object fromKey){
+		if(m.doCompare(fromKey, start) <= 0)
+			return this;
+
+		return new SubPersistentTreeMap(meta(), m, fromKey, end);
+	}
+
+	public ASeq seq(){
+		return seqFrom(start, true);
+	}
+
+	public ASeq seq(boolean ascending){
+		return seqFrom(start, ascending);
+	}
+
+	public ASeq seqFrom(Object key, boolean ascending){
+		if(ascending && (end != null) && (m.doCompare(key, end) >= 0))
+			return null;
+
+		if(!ascending && m.doCompare(key, start) < 0)
+			return null;
+
+		if((m._count > 0)) {
+
+			ISeq stack = null;
+			Node t = m.tree;
+			while(t != null) {
+				int c = m.doCompare(key, t.key);
+				if(c == 0) {
+					stack = RT.cons(t, stack);
+					return new Seq(stack, ascending);
+				}
+				else if(ascending) {
+					if((end != null) && (m.doCompare(t.key, end) >= 0)) {
+						stack = RT.cons(t, stack);
+						return new Seq(stack, ascending);
+					} else if(c < 0) {
+						stack = RT.cons(t, stack);
+						t = t.left();
+					}
+					else
+						t = t.right();
+
+				} else { // descending
+					if(m.doCompare(start, t.key) < 0) {
+						stack = RT.cons(t, stack);
+						return new Seq(stack, ascending);
+					} else {
+						if(c > 0) {
+							stack = RT.cons(t, stack);
+							t = t.right();
+						} else
+							t = t.left();
+					}
+				}
+			}
+			if(stack != null)
+				return new Seq(stack, ascending);
+		}
+		return null;
+	}
+
+	public Iterator iterator(){
+		return seq().iterator();
+	}
+
+	public Iterator reverseIterator(){
+		return rseq().iterator();
+	}
+
+	public Object valAt(Object key, Object notFound){
+		return withinSubRange(key) ? m.valAt(key, notFound) : notFound;
+	}
+
+	public Object valAt(Object key){
+		return withinSubRange(key) ? m.valAt(key) : null;
+	}
+
+	public int count(){
+		// TODO memoize?
+		return seq(true).count();
 	}
 }
 /*
