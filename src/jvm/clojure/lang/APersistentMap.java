@@ -392,4 +392,192 @@ public boolean contains(Object o){
 	return false;
 }
 */
+public class SubPersistentTreeMap extends APersistentMap implements IObj, Reversible, Sorted, SortedMap{
+	final IPersistentMap m; // must be Sorted
+	final Object start;
+	final Object end;
+	final IPersistentMap _meta;
+
+	public SubPersistentTreeMap(IPersistentMap meta, IPersistentMap m, Object start, Object end){
+		this._meta = meta;
+
+		if(!(m implements Sorted)) {
+			throw new IllegalArgumentException("IPersistentMap arg to SubPersistentTreeMap must be Sorted");
+		}
+
+		if(m instanceof APersistentMap.SubPersistentTreeMap) {
+			APersistentMap.SubPersistentTreeMap sm = (APersistentMap.SubPersistentTreeMap) m;
+			m = sm.m;
+		}
+		this.m = m;
+		this.start = start;
+		this.end = end;
+	}
+
+	private withinSubRange(Object key){
+		return (m.doCompare(key, start) >= 0) &&
+			((end == null) || (m.doCompare(key, end) < 0));
+	}
+
+	public boolean containsKey(Object key){
+		return entryAt(key) != null;
+	}
+
+	public Node entryAt(Object key){
+		return withinSubRange(key) ? m.entryAt(key) : null;
+	}
+
+	public IPersistentMap assocEx(Object key, Object val) {
+		if(withinSubRange(key))
+			return new SubPersistentTreeMap(meta(), m.assocEx(key, val), start, end);
+
+		// else we're not inserting between the range, so we no longer have a submap
+		return PersistentTreeMap.create(comparator(), seq(true)).assocEx(key, val);
+	}
+
+	public PersistentTreeMap assoc(Object key, Object val){
+		if(withinSubRange(key))
+			return new SubPersistentTreeMap(meta(), m.assoc(key, val), start, end);
+
+		// else we're not inserting between the range, so we no longer have a submap
+		return PersistentTreeMap.create(comparator(), seq(true)).assocEx(key, val);
+	}
+
+	public PersistentTreeMap without(Object key){
+		if(withinSubRange(key))
+			return new SubPersistentTreeMap(meta(), m.without(key), start, end);
+
+		return this;
+	}
+
+	public IPersistentCollection empty(){
+		return m.empty();
+	}
+
+	public ISeq rseq() {
+		return seqFrom(start, false);
+	}
+
+	public Comparator comparator(){
+		return m.comp;
+	}
+
+	public Object firstKey(){
+		// TODO binary search
+		return RT.first(seqFrom(start, true)).key();
+	}
+
+	public SortedMap headMap(Object toKey){
+		if((end == null) || (m.doCompare(toKey, end) >= 0))
+			return this;
+
+		return new SubPersistentTreeMap(meta(), m, start, toKey);
+	}
+
+	public Object lastKey(){
+		if(end)
+			// TODO binary search
+			return RT.first(rseq()).key();
+
+		return m.lastKey();
+	}
+
+	public SortedMap subMap(Object fromKey, Object toKey){
+		Object newStart = m.doCompare(fromKey, start) > 0 ? fromKey : start;
+		Object newEnd = ((end == null) || (m.doCompare(toKey, end))) < 0 ? toKey : end;
+
+		if(m.doCompare(newEnd, newStart) <= 0)
+			return m.empty();
+
+		return new SubPersistentTreeMap(meta(), this, newStart, newEnd);
+	}
+
+	public SortedMap tailMap(Object fromKey){
+		if(m.doCompare(fromKey, start) <= 0)
+			return this;
+
+		return new SubPersistentTreeMap(meta(), this, fromKey, end);
+	}
+
+	public ISeq seq(boolean ascending){
+		return seqFrom(start, ascending);
+	}
+
+	public ISeq seqFrom(Object key, boolean ascending){
+		if(ascending && (end != null) && (m.doCompare(key, end) >= 0))
+			return null;
+
+		if(!ascending && m.doCompare(key, start) < 0)
+			return null;
+
+		if((m._count > 0)) {
+
+			ISeq stack = null;
+			Node t = m.tree;
+			while(t != null) {
+				int c = m.doCompare(key, t.key);
+				if(c == 0) {
+					stack = RT.cons(t, stack);
+					return new Seq(stack, ascending);
+				}
+				else if(ascending) {
+					if((end != null) && (m.doCompare(t.key, end) >= 0)) {
+						stack = RT.cons(t, stack);
+						return new Seq(stack, ascending);
+					} else if(c < 0) {
+						stack = RT.cons(t, stack);
+						t = t.left();
+					}
+					else
+						t = t.right();
+
+				} else { // descending
+					if(m.doCompare(start, t.key) < 0) {
+						stack = RT.cons(t, stack);
+						return new Seq(stack, ascending);
+					} else {
+						if(c > 0) {
+							stack = RT.cons(t, stack);
+							t = t.right();
+						} else
+							t = t.left();
+					}
+				}
+			}
+			if(stack != null)
+				return new Seq(stack, ascending);
+		}
+		return null;
+	}
+
+	public Iterator iterator(){
+		return seq(true).iterator();
+	}
+
+	public NodeIterator reverseIterator(){
+		return rseq(true).iterator();
+	}
+
+	public Iterator keys(){
+		return keys(iterator());
+	}
+
+	public Iterator vals(){
+		return vals(iterator());
+	}
+
+	public Object valAt(Object key, Object notFound){
+		return withinSubRange(key) ? m.valAt(key, notFound) : notFound;
+	}
+
+	public Object valAt(Object key){
+		return withinSubRange(key) ? m.valAt(key) : null;
+	}
+
+	public int count(){
+		// TODO memoize?
+		return seq(true).count();
+	}
 }
+}
+// TODO enclose SubPersistentTreeMap in scope

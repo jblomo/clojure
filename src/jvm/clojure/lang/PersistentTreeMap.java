@@ -22,7 +22,7 @@ import java.util.*;
  * See Okasaki, Kahrs, Larsen et al
  */
 
-public class PersistentTreeMap extends APersistentMap implements IObj, Reversible, Sorted{
+public class PersistentTreeMap extends APersistentMap implements IObj, Reversible, Sorted, SortedMap{
 
 public final Comparator comp;
 public final Node tree;
@@ -149,6 +149,26 @@ public ISeq rseq() {
 
 public Comparator comparator(){
 	return comp;
+}
+
+public Object firstKey(){
+	return minKey();
+}
+
+public SortedMap headMap(Object toKey){
+	return APersistentMap.SubPersistentTreeMap(meta(), this, firstKey(), toKey);
+}
+
+public Object lastKey(){
+	return maxKey();
+}
+
+public SortedMap subMap(Object fromKey, Object toKey){
+	return new APersistentMap.SubPersistentTreeMap(meta(), this, fromKey, toKey);
+}
+
+public SortedMap tailMap(Object fromKey){
+	return new APersistentMap.SubPersistentTreeMap(meta(), this, fromKey, null);
 }
 
 public Object entryKey(Object entry){
