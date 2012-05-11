@@ -156,7 +156,7 @@ public Object firstKey(){
 }
 
 public SortedMap headMap(Object toKey){
-	return new SubPersistentTreeMap(meta(), this, firstKey(), toKey);
+	return new SubPersistentTreeMap(meta(), this, minKey(), toKey);
 }
 
 public Object lastKey(){
@@ -181,7 +181,7 @@ public ISeq seq(boolean ascending){
 	return null;
 }
 
-public ISeq seqFrom(Object key, boolean ascending){
+public ASeq seqFrom(Object key, boolean ascending){
 	if(_count > 0)
 		{
 		ISeq stack = null;
@@ -1036,50 +1036,78 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 	}
 
 	public ASeq seqFrom(Object key, boolean ascending){
-		if(ascending && (end != null) && (m.doCompare(key, end) >= 0))
-			return null;
+		if(ascending) {
+			Object seqStart = m.doCompare(start, key) > 0 ? start : key;
+			ASeq seq = m.seqFrom(seqStart, ascending);
+			if(seq == null)
+				return null;
+			final Iterator mi = seq.iterator();
 
-		if(!ascending && m.doCompare(key, start) < 0)
-			return null;
-
-		if((m._count > 0)) {
-
-			ISeq stack = null;
-			Node t = m.tree;
-			while(t != null) {
-				int c = m.doCompare(key, t.key);
-				if(c == 0) {
-					stack = RT.cons(t, stack);
-					return new Seq(stack, ascending);
+			return IteratorSeq.create(new Iterator() {
+				Node next = (Node)mi.next();
+				public boolean hasNext() {
+					return next != null && (end == null || m.doCompare(next.key, end) < 0);
 				}
-				else if(ascending) {
-					if((end != null) && (m.doCompare(t.key, end) >= 0)) {
-						stack = RT.cons(t, stack);
-						return new Seq(stack, ascending);
-					} else if(c < 0) {
-						stack = RT.cons(t, stack);
-						t = t.left();
-					}
-					else
-						t = t.right();
 
-				} else { // descending
-					if(m.doCompare(start, t.key) < 0) {
-						stack = RT.cons(t, stack);
-						return new Seq(stack, ascending);
+				public Object next() {
+					if(!hasNext())
+						throw new NoSuchElementException();
+
+					Object ret = next;
+					if(mi.hasNext()) {
+						next = (Node)mi.next();
 					} else {
-						if(c > 0) {
-							stack = RT.cons(t, stack);
-							t = t.right();
-						} else
-							t = t.left();
+						next = null;
 					}
+					return ret;
 				}
+
+				public void remove() {
+					throw new UnsupportedOperationException();
+				}
+			});
+
+		} else { // descending
+			Object seqStart = (end != null && m.doCompare(end, key) < 0) ? end : key;
+			ASeq seq = m.seqFrom(seqStart, ascending);
+			if(seq == null)
+				return null;
+			final Iterator mi = seq.iterator();
+
+			Node startNode = null;
+			// make sure to exclude end
+			while(startNode == null && mi.hasNext()) {
+				Node test = (Node)mi.next();
+				if(end == null || m.doCompare(test.key, end) < 0)
+					startNode = test;
 			}
-			if(stack != null)
-				return new Seq(stack, ascending);
+			// alllow annonymous class to access startNode
+			final Node fStartNode = startNode;
+
+			return IteratorSeq.create(new Iterator() {
+				Node next = fStartNode;
+				public boolean hasNext() {
+					return next != null && m.doCompare(next.key, start) >= 0;
+				}
+
+				public Object next() {
+					if(!hasNext())
+						throw new NoSuchElementException();
+
+					Object ret = next;
+					if(mi.hasNext()) {
+						next = (Node)mi.next();
+					} else {
+						next = null;
+					}
+					return ret;
+				}
+
+				public void remove() {
+					throw new UnsupportedOperationException();
+				}
+			});
 		}
-		return null;
 	}
 
 	public Iterator iterator(){
