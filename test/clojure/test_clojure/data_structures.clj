@@ -579,6 +579,117 @@
          (get-in m [] 0) m
          (get-in m nil 0) m)))
 
+;; *** Maps ***
+
+;; TODO hash-map
+(deftest test-sorted-map
+  ; only compatible types can be used
+  (is (thrown? ClassCastException (sorted-map 1 nil "a" nil)))
+  (is (thrown? ClassCastException (sorted-map '(1 2) nil [3 4] nil)))
+
+  ; creates map?
+  (are [x] (map? x)
+       (sorted-map)
+       (sorted-map 1 nil 2 nil))
+
+  ; equal and unique
+  (are [x] (and (= (sorted-map x nil) {x nil})
+                (= (sorted-map x nil x 1) (sorted-map x 1)))
+      nil
+      false true
+      0 42
+      0.0 3.14
+      2/3
+      0M 1M
+      \c
+      "" "abc"
+      'sym
+      :kw
+      ()  ; '(1 2)
+      [] [1 2]
+      {}  ; {:a 1 :b 2}
+      #{} ; #{1 2}
+  )
+  ; cannot be cast to java.lang.Comparable
+  (is (thrown? ClassCastException (sorted-map '(1 2) nil '(1 2) nil)))
+  (is (thrown? ClassCastException (sorted-map {:a 1 :b 2} nil {:a 1 :b 2} nil)))
+  (is (thrown? ClassCastException (sorted-map #{1 2} nil #{1 2} nil)))
+
+  (are [x y] (= x y)
+      ; generating
+      (sorted-map) {}
+      (sorted-map 1 nil) {1 nil}
+      (sorted-map 1 nil 2 nil) {1 nil 2 nil}
+
+      ; sorting
+      (seq (sorted-map 5 nil 4 nil 3 nil 2 nil 1 nil))
+       '([1 nil]
+         [2 nil]
+         [3 nil]
+         [4 nil]
+         [5 nil])
+
+      ; special cases
+      (keys (sorted-map 1 true nil true)) '(nil 1)
+      (keys (sorted-map nil true 2 true)) '(nil 2)))
+
+
+(deftest test-sorted-map-by
+  ; only compatible types can be used
+  ; NB: not a ClassCastException, but a RuntimeException is thrown,
+  ; requires discussion on whether this should be symmetric with test-sorted-map
+  (is (thrown? Exception (sorted-map-by < 1 nil "a" nil)))
+  (is (thrown? Exception (sorted-map-by < '(1 2) nil [3 4] nil)))
+
+  ; creates map?
+  (are [x] (map? x)
+       (sorted-map-by <)
+       (sorted-map-by < 1 nil 2 nil) )
+
+  ; equal and unique
+  (are [x] (and (= (sorted-map-by compare x nil) {x nil})
+                (= (sorted-map-by compare x nil x true) (sorted-map-by compare x true)))
+      nil
+      false true
+      0 42
+      0.0 3.14
+      2/3
+      0M 1M
+      \c
+      "" "abc"
+      'sym
+      :kw
+      ()  ; '(1 2)
+      [] [1 2]
+      {}  ; {:a 1 :b 2}
+      #{} ; #{1 2}
+  )
+  ; cannot be cast to java.lang.Comparable
+  ; NB: not a ClassCastException, but a RuntimeException is thrown,
+  ; requires discussion on whether this should be symmetric with test-sorted-map
+  (is (thrown? Exception (sorted-map-by compare '(1 2) nil '(1 2) true)))
+  (is (thrown? Exception (sorted-map-by compare {:a 1 :b 2} nil {:a 1 :b 2} true)))
+  (is (thrown? Exception (sorted-map-by compare #{1 2} nil #{1 2} true)))
+
+  (are [x y] (= x y)
+       ; generating
+       (sorted-map-by >) {}
+       (sorted-map-by > 1 nil) {1 nil}
+       (sorted-map-by > 1 nil 2 nil) {1 nil 2 nil}
+
+       ; sorting
+       (seq (sorted-map-by < 5 nil 4 nil 3 nil 2 nil 1 nil))
+       '([1 nil]
+         [2 nil]
+         [3 nil]
+         [4 nil]
+         [5 nil]))
+
+      ; special cases
+      (sorted-map-by compare nil 1) {nil 1}
+      (sorted-map-by compare 1 true nil true) {nil true 1 true}
+      (sorted-map-by compare nil true 2 true) {nil true 2 true})
+
 ;; *** Sets ***
 
 (deftest test-hash-set

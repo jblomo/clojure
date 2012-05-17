@@ -924,7 +924,6 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 
 	public SubPersistentTreeMap(IPersistentMap meta, PersistentTreeMap m, Object start, Object end){
 		this._meta = meta;
-
 		this.m = m;
 		this.start = start;
 		this.end = end;
