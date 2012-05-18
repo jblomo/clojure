@@ -959,7 +959,8 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 			return new SubPersistentTreeMap(meta(), m.assocEx(key, val), start, end);
 
 		// else we're not inserting between the range, so we no longer have a submap
-		return PersistentTreeMap.create(comparator(), seq(true)).assocEx(key, val);
+		IPersistentMap ret = new PersistentTreeMap(meta(), comparator());
+		return export(m).assocEx(key, val);
 	}
 
 	public IPersistentMap assoc(Object key, Object val){
@@ -967,7 +968,17 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 			return new SubPersistentTreeMap(meta(), m.assoc(key, val), start, end);
 
 		// else we're not inserting between the range, so we no longer have a submap
-		return PersistentTreeMap.create(comparator(), seq(true)).assocEx(key, val);
+		IPersistentMap ret = new PersistentTreeMap(meta(), comparator());
+		return export(m).assoc(key, val);
+	}
+
+	public IPersistentMap export(IPersistentMap m) {
+		for(Object o : entrySet())
+		{
+			Map.Entry e = (Entry) o;
+			m = m.assoc(e.getKey(), e.getValue());
+		}
+		return m;
 	}
 
 	public IPersistentMap without(Object key){
@@ -1126,8 +1137,12 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 	}
 
 	public int count(){
-		// TODO memoize?
-		return seq(true).count();
+		// memoize?
+		ISeq s = seq(true);
+		if(s == null)
+			return 0;
+
+		return s.count();
 	}
 }
 /*

@@ -690,6 +690,90 @@
       (sorted-map-by compare 1 true nil true) {nil true 1 true}
       (sorted-map-by compare nil true 2 true) {nil true 2 true})
 
+
+(deftest test-sub-map
+  ; creates map?
+  (are [x] (map? (.subMap x 1 2))
+       (sorted-map)
+       (sorted-map 1 nil 2 nil))
+
+  ; correctly limits submap
+  (are [o mn mx eq] (let [sub (.subMap o mn mx)]
+                       (and (= sub eq)
+                            (contains? sub mn)
+                            (not (contains? sub mx))))
+       (sorted-map 1 nil 2 nil) 1 2 {1 nil}
+       (sorted-map 2.0 nil 1.0 nil) 1.0 2.0 {1.0 nil}
+       (sorted-map \d nil \b nil \c nil) \b \f {\b nil \c nil \d nil}
+       (sorted-map "a" nil "b" nil "c" nil) "b" "cc" {"b" nil "c" nil})
+
+  (are [sm mn mx] (= (.subMap sm mn mx) {})
+       (sorted-map "a" nil "b" nil "c" nil) "d" "z"
+       (sorted-map "a" nil "b" nil "c" nil) "c" "c")
+
+  ; correctly limits headMap
+  (are [o mx eq] (let [mn (first (keys o))
+                       sub (.headMap o mx)]
+                   (and (= sub eq)
+                        (contains? sub mn)
+                        (= (.firstKey sub) mn)
+                        (not (contains? sub mx))))
+       (sorted-map 1 nil 2 nil) 2 {1 nil}
+       (sorted-map 2.0 nil 1.0 nil) 2.0 {1.0 nil}
+       (sorted-map \d nil \b nil \c nil) \f {\b nil \c nil \d nil})
+
+  (are [sm mx] (= (.headMap sm mx) {})
+       (sorted-map "a" nil "b" nil "c" nil) "a"
+       (sorted-map "a" nil "b" nil "c" nil) "0")
+
+  ; correctly limits tailMap
+  (are [o mn eq] (let [mx (last (keys o))
+                          sub (.tailMap o mn)]
+                       (and (= sub eq)
+                            (contains? sub mn)
+                            (= (.lastKey sub) mx)
+                            (contains? sub mx)))
+       (sorted-map 1 nil 2 nil) 1 {1 nil 2 nil}
+       (sorted-map 2.0 nil 1.0 nil) 2.0 {2.0 nil}
+       (sorted-map "a" nil "b" nil "c" nil) "b" {"b" nil "c" nil})
+
+  (are [sm mx] (= (.tailMap sm mx) {})
+       (sorted-map "a" nil "b" nil "c" nil) "d")
+
+  ; can assoc to a new map
+  (are [m k] (let [ks (keys m)
+                   f  (first ks)
+                   l  (last ks)
+                   sub (.subMap m f l)]
+               (contains? (assoc sub k nil) k))
+       (sorted-map 1 nil 3 nil) 2
+       (sorted-map 3.0 nil 1.0 nil) 4.4
+       (sorted-map \d nil \b nil \c nil) \c
+       (sorted-map "a" nil "b" nil "c" nil) "a")
+
+  ; can disj to a new map
+  (are [m] (let [ks (keys m)
+                 f  (first ks)
+                 l  (last ks)
+                 sub (.subMap m f l)]
+             (not (contains? (dissoc sub f) f)))
+       (sorted-map 1 nil 3 nil)
+       (sorted-map 3.0 nil 1.0 nil)
+       (sorted-map \d nil \b nil \c nil)
+       (sorted-map "a" nil "b" nil "c" nil))
+
+  ; sorting
+  (are [x y] (= x y)
+      (seq (.subMap (sorted-map 5 nil 4 nil 3 nil 2 nil 1 nil) 2 5))
+       '([2 nil]
+         [3 nil]
+         [4 nil])
+
+      (seq (.subMap (sorted-map-by > 5 nil 4 nil 3 nil 2 nil 1 nil) 4 1))
+       '([4 nil]
+         [3 nil]
+         [2 nil])))
+
 ;; *** Sets ***
 
 (deftest test-hash-set
