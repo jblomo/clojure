@@ -13,8 +13,10 @@
 package clojure.lang;
 
 import java.util.Comparator;
+import java.util.SortedSet;
+import java.util.SortedMap;
 
-public class PersistentTreeSet extends APersistentSet implements IObj, Reversible, Sorted{
+public class PersistentTreeSet extends APersistentSet implements IObj, Reversible, Sorted, SortedSet{
 static public final PersistentTreeSet EMPTY = new PersistentTreeSet(null, PersistentTreeMap.EMPTY);
 final IPersistentMap _meta;
 
@@ -86,5 +88,25 @@ public ISeq seqFrom(Object key, boolean ascending){
 
 public IPersistentMap meta(){
 	return _meta;
+}
+
+public Object first(){
+	return ((SortedMap)impl).firstKey();
+}
+
+public Object last(){
+	return ((SortedMap)impl).lastKey();
+}
+
+public SortedSet headSet(Object toElement){
+	return new PersistentTreeSet(meta(), (APersistentMap)((SortedMap)impl).headMap(toElement));
+}
+
+public SortedSet tailSet(Object fromElement){
+	return new PersistentTreeSet(meta(), (APersistentMap)((SortedMap)impl).tailMap(fromElement));
+}
+
+public SortedSet subSet(Object fromElement, Object toElement){
+	return new PersistentTreeSet(meta(), (APersistentMap)((SortedMap)impl).subMap(fromElement, toElement));
 }
 }

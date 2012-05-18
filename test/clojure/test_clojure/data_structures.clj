@@ -709,7 +709,8 @@
 
   (are [sm mn mx] (= (.subMap sm mn mx) {})
        (sorted-map "a" nil "b" nil "c" nil) "d" "z"
-       (sorted-map "a" nil "b" nil "c" nil) "c" "c")
+       (sorted-map "a" nil "b" nil "c" nil) "c" "c"
+       (sorted-map) 1 2)
 
   ; correctly limits headMap
   (are [o mx eq] (let [mn (first (keys o))
@@ -724,21 +725,23 @@
 
   (are [sm mx] (= (.headMap sm mx) {})
        (sorted-map "a" nil "b" nil "c" nil) "a"
-       (sorted-map "a" nil "b" nil "c" nil) "0")
+       (sorted-map "a" nil "b" nil "c" nil) "0"
+       (sorted-map) 1)
 
   ; correctly limits tailMap
   (are [o mn eq] (let [mx (last (keys o))
-                          sub (.tailMap o mn)]
-                       (and (= sub eq)
-                            (contains? sub mn)
-                            (= (.lastKey sub) mx)
-                            (contains? sub mx)))
+                       sub (.tailMap o mn)]
+                   (and (= sub eq)
+                        (contains? sub mn)
+                        (= (.lastKey sub) mx)
+                        (contains? sub mx)))
        (sorted-map 1 nil 2 nil) 1 {1 nil 2 nil}
        (sorted-map 2.0 nil 1.0 nil) 2.0 {2.0 nil}
        (sorted-map "a" nil "b" nil "c" nil) "b" {"b" nil "c" nil})
 
   (are [sm mx] (= (.tailMap sm mx) {})
-       (sorted-map "a" nil "b" nil "c" nil) "d")
+       (sorted-map "a" nil "b" nil "c" nil) "d"
+       (sorted-map) 2)
 
   ; can assoc to a new map
   (are [m k] (let [ks (keys m)
@@ -975,6 +978,85 @@
       "" #{}
       "abc" #{\a \b \c} ))
 
+(deftest test-sub-set
+  ; creates set?
+  (are [x] (set? (.subSet x 1 2))
+       (sorted-set)
+       (sorted-set 1 2))
+
+  ; correctly limits subSet
+  (are [o mn mx eq] (let [sub (.subSet o mn mx)]
+                       (and (= sub eq)
+                            (contains? sub mn)
+                            (not (contains? sub mx))))
+       (sorted-set 1 2 ) 1 2 #{1}
+       (sorted-set 2.0 1.0 ) 1.0 2.0 #{1.0}
+       (sorted-set \d \b \c ) \b \f #{\b \c \d }
+       (sorted-set "a" "b" "c" ) "b" "cc" #{"b" "c"})
+
+  (are [sm mn mx] (= (.subSet sm mn mx) #{})
+       (sorted-set "a" "b" "c" ) "d" "z"
+       (sorted-set "a" "b" "c" ) "c" "c"
+       (sorted-set) 1 2)
+
+  ; correctly limits headset
+  (are [s mx eq] (let [mn (first s)
+                       sub (.headSet s mx)]
+                   (and (= sub eq)
+                        (contains? sub mn)
+                        (= (.first sub) mn)
+                        (not (contains? sub mx))))
+       (sorted-set 1 2 ) 2 #{1}
+       (sorted-set 2.0 1.0 ) 2.0 #{1.0}
+       (sorted-set \d \b \c ) \f #{\b \c \d })
+
+  (are [sm mx] (= (.headSet sm mx) #{})
+       (sorted-set "a" "b" "c" ) "a"
+       (sorted-set "a" "b" "c" ) "0"
+       (sorted-set) 1)
+
+  ; correctly limits tailset
+  (are [s mn eq] (let [mx (last s)
+                       sub (.tailSet s mn)]
+                   (and (= sub eq)
+                        (contains? sub mn)
+                        (= (.last sub) mx)
+                        (contains? sub mx)))
+       (sorted-set 1 2 ) 1 #{1 2}
+       (sorted-set 2.0 1.0 ) 2.0 #{2.0}
+       (sorted-set "a" "b" "c" ) "b" #{"b" "c" })
+
+  (are [ss mx] (= (.tailSet ss mx) #{})
+       (sorted-set "a" "b" "c") "d"
+       (sorted-set) 2)
+
+  ; can assoc to a new set
+  (are [s k] (let [f  (first s)
+                   l  (last s)
+                   sub (.subSet s f l)]
+               (contains? (conj sub k) k))
+       (sorted-set 1 3 ) 2
+       (sorted-set 3.0 1.0 ) 4.4
+       (sorted-set \d \b \c ) \c
+       (sorted-set "a" "b" "c" ) "a")
+
+  ; can disj to a new set
+  (are [s] (let [f  (first s)
+                 l  (last s)
+                 sub (.subSet s f l)]
+             (not (contains? (disj sub f) f)))
+       (sorted-set 1 3)
+       (sorted-set 3.0 1.0)
+       (sorted-set \d \b \c)
+       (sorted-set "a" "b" "c"))
+
+  ; sorting
+  (are [x y] (= x y)
+      (seq (.subSet (sorted-set 5 4 3 2 1) 2 5))
+       '(2 3 4)
+
+      (seq (.subSet (sorted-set-by > 5 4 3 2 1) 4 1))
+       '(4 3 2)))
 
 (deftest test-disj
   ; doesn't work on lists, vectors or maps
