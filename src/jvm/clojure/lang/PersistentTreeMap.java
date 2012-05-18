@@ -156,6 +156,11 @@ public Object firstKey(){
 }
 
 public SortedMap headMap(Object toKey){
+	if(doCompare(toKey, maxKey()) > 0)
+		return this;
+	if(doCompare(toKey, minKey()) <= 0)
+		return EMPTY;
+
 	return new SubPersistentTreeMap(meta(), this, minKey(), toKey);
 }
 
@@ -164,10 +169,22 @@ public Object lastKey(){
 }
 
 public SortedMap subMap(Object fromKey, Object toKey){
+	if(doCompare(fromKey, minKey()) <= 0 &&
+			doCompare(toKey, maxKey()) > 0)
+		return this;
+	if(doCompare(fromKey, maxKey()) > 0 ||
+			doCompare(toKey, minKey()) <= 0)
+		return EMPTY;
+
 	return new SubPersistentTreeMap(meta(), this, fromKey, toKey);
 }
 
 public SortedMap tailMap(Object fromKey){
+	if(doCompare(fromKey, minKey()) <= 0)
+		return this;
+	if(doCompare(fromKey, maxKey()) > 0)
+		return EMPTY;
+
 	return new SubPersistentTreeMap(meta(), this, fromKey, null);
 }
 
@@ -922,6 +939,8 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 	final Object end;
 	final IPersistentMap _meta;
 
+	int _count = -1;
+
 	public SubPersistentTreeMap(IPersistentMap meta, PersistentTreeMap m, Object start, Object end){
 		this._meta = meta;
 		this.m = m;
@@ -1137,12 +1156,14 @@ public class SubPersistentTreeMap extends APersistentMap implements IObj, Revers
 	}
 
 	public int count(){
-		// memoize?
-		ISeq s = seq(true);
-		if(s == null)
-			return 0;
-
-		return s.count();
+		if(_count < 0) {
+			ISeq s = seq(true);
+			if(s == null)
+				_count = 0;
+			else
+				_count = s.count();
+		}
+		return _count;
 	}
 }
 /*
