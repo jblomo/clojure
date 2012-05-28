@@ -27,3 +27,14 @@
   ;; regression fixed in r1218; was OutOfMemoryError
   (is (= '(1) (pmap inc [0]))))
 
+(deftest pmap-latency
+  (let [c (range 10)
+        f #(do (Thread/sleep 50) %)
+        nano-timed (fn [s]
+                     (let [start (System/nanoTime)]
+                       (doall s)
+                       (- (System/nanoTime) start)))]
+    (is (> (nano-timed (map f c)) (nano-timed (pmap f c)))
+        "pmap latency should be lower")))
+
+

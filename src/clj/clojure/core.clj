@@ -6215,21 +6215,26 @@
   [^java.util.concurrent.Future f] (.isCancelled f))
 
 (defn pmap
-  "Like map, except f is applied in parallel. Semi-lazy in that the
-  parallel computation stays ahead of the consumption, but doesn't
-  realize the entire result unless required. Only useful for
-  computationally intensive functions where the time of f dominates
-  the coordination overhead."
+  "Like map, except f is applied in parallel. Semi-lazy in that the parallel
+  computation stays ahead of the consumption, but doesn't realize the entire
+  result. If laziness is not required, consider using reducers/map. Only useful
+  for computationally intensive functions where the time of f dominates the
+  coordination overhead."
   {:added "1.0"
    :static true}
   ([f coll]
-   (let [n (+ 2 (.. Runtime getRuntime availableProcessors))
-         rets (map #(future (f %)) coll)
+   (let [f (binding-conveyor-fn f)
+         pool clojure.lang.Agent/pooledExecutor 
+         submit (fn [e]
+                  (let [task #(f e)] ; bind to task for type hint
+                    (.submit pool ^Callable task)))
+         rets (map submit coll)
+         n (.getMaximumPoolSize pool)
          step (fn step [[x & xs :as vs] fs]
                 (lazy-seq
                  (if-let [s (seq fs)]
-                   (cons (deref x) (step xs (rest s)))
-                   (map deref vs))))]
+                   (cons (.get x) (step xs (rest s)))
+                   (map #(.get %) vs))))]
      (step rets (drop n rets))))
   ([f coll & colls]
    (let [step (fn step [cs]
