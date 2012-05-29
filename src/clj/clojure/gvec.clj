@@ -49,6 +49,12 @@
       (if (< i end)
         (recur (f ret (.aget am arr i)) (inc i))
         ret)))
+
+  clojure.lang.Seqable
+  (seq [t]
+    (->> arr
+      (drop off)
+      (take (.count t))))
   )
 
 (deftype VecSeq [^clojure.core.ArrayManager am ^clojure.core.IVecImpl vec anode ^int i ^int offset] 

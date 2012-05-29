@@ -13,8 +13,11 @@
 package clojure.lang;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
-public final class ArrayChunk implements IChunk, Serializable {
+import clojure.lang.ArraySeq;
+
+public final class ArrayChunk implements IChunk, Serializable, Seqable {
 
 final Object[] array;
 final int off;
@@ -65,5 +68,9 @@ public Object reduce(IFn f, Object start) {
 				return ret;
 			}
 		return ret;
+}
+
+public ISeq seq() {
+	return ArraySeq.createFromObject(Arrays.copyOfRange(array, off, end));
 }
 }
